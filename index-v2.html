@@ -108,11 +108,33 @@
     background: rgba(255,255,255,0.15);
     color: #ddd;
   }
+
+  /* ── Version Nav ── */
+  .version-nav {
+    position: fixed; top: 16px; left: 16px; z-index: 100;
+    display: flex; gap: 2px;
+    background: rgba(10,10,10,0.7); backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+    padding: 3px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .version-nav a {
+    padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 500;
+    color: rgba(255,255,255,0.4); text-decoration: none; transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .version-nav a:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.06); }
+  .version-nav a.active { color: #fff; background: rgba(255,255,255,0.12); }
 </style>
 </head>
 <body>
 
 <canvas id="bg"></canvas>
+
+<nav class="version-nav">
+  <a href="index-v1.html">v1</a>
+  <a href="index-v2.html" class="active">v2</a>
+  <a href="index.html">v3</a>
+</nav>
 
 <div class="hero-content">
   <h1>Your shortcut to<br>everything.</h1>
