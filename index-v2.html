@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hero Animation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0A0A0A; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+    color: #fff;
+  }
+  .hero-content h1 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+  }
+  .hero-content p {
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
+    color: rgba(255,255,255,0.6);
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  /* ── Color Editor UI ── */
+  .color-editor {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 100;
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px;
+    min-width: 200px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #aaa;
+    font-size: 13px;
+  }
+  .color-editor.collapsed .editor-body { display: none; }
+  .editor-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    color: #ccc;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 0;
+  }
+  .color-editor:not(.collapsed) .editor-toggle { margin-bottom: 12px; }
+  .editor-toggle span:last-child { font-size: 11px; color: #666; }
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .color-row label {
+    flex: 1;
+    font-size: 12px;
+    color: #888;
+  }
+  .color-row input[type="color"] {
+    width: 32px;
+    height: 24px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+  .color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
+  .color-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
+  .editor-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .editor-actions button {
+    flex: 1;
+    padding: 6px 0;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    color: #aaa;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .editor-actions button:hover {
+    background: rgba(255,255,255,0.15);
+    color: #ddd;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div class="hero-content">
+  <h1>Your shortcut to<br>everything.</h1>
+  <p>A collection of powerful productivity tools all within an extendable launcher. Fast, ergonomic and reliable.</p>
+</div>
+
+<!-- Color Editor UI -->
+<div class="color-editor collapsed" id="colorEditor">
+  <div class="editor-toggle" onclick="document.getElementById('colorEditor').classList.toggle('collapsed')">
+    <span>Colors</span>
+    <span>&#9660;</span>
+  </div>
+  <div class="editor-body">
+    <div class="color-row"><label>Crimson</label><input type="color" value="#EB1A1F" data-color="crimson"></div>
+    <div class="color-row"><label>Coral</label><input type="color" value="#FA5230" data-color="coral"></div>
+    <div class="color-row"><label>Rose</label><input type="color" value="#CC1A40" data-color="rose"></div>
+    <div class="color-row"><label>Deep</label><input type="color" value="#73080F" data-color="deep"></div>
+    <div class="color-row"><label>Background</label><input type="color" value="#050304" data-color="bg"></div>
+    <div class="editor-actions">
+      <button onclick="savePalette()">Save</button>
+      <button onclick="document.getElementById('paletteUpload').click()">Load</button>
+    </div>
+    <input type="file" id="paletteUpload" accept=".json" style="display:none" onchange="loadPalette(event)">
+  </div>
+</div>
+
+<script>
+// ── Color state (editable via UI) ────────────────────────────
+const colors = {
+  crimson: [0.92, 0.10, 0.12],
+  coral:   [0.98, 0.32, 0.18],
+  rose:    [0.80, 0.10, 0.25],
+  deep:    [0.45, 0.03, 0.06],
+  bg:      [0.02, 0.015, 0.018],
+};
+
+// Hex to GL vec3
+function hexToGL(hex) {
+  const r = parseInt(hex.slice(1,3), 16) / 255;
+  const g = parseInt(hex.slice(3,5), 16) / 255;
+  const b = parseInt(hex.slice(5,7), 16) / 255;
+  return [r, g, b];
+}
+
+// GL vec3 to hex
+function glToHex(rgb) {
+  return '#' + rgb.map(v => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0')).join('');
+}
+
+// Wire up color inputs
+document.querySelectorAll('[data-color]').forEach(input => {
+  input.addEventListener('input', (e) => {
+    const key = e.target.dataset.color;
+    colors[key] = hexToGL(e.target.value);
+    updateColorUniforms();
+  });
+});
+
+// Save palette as JSON download
+function savePalette() {
+  const palette = {};
+  for (const key in colors) palette[key] = glToHex(colors[key]);
+  const blob = new Blob([JSON.stringify(palette, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hero-palette.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Load palette from JSON file
+function loadPalette(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const palette = JSON.parse(ev.target.result);
+      for (const key in palette) {
+        if (colors.hasOwnProperty(key)) {
+          colors[key] = hexToGL(palette[key]);
+          const input = document.querySelector(`[data-color="${key}"]`);
+          if (input) input.value = palette[key];
+        }
+      }
+      updateColorUniforms();
+    } catch (err) { console.error('Invalid palette file', err); }
+  };
+  reader.readAsText(file);
+  e.target.value = ''; // reset so same file can be loaded again
+}
+
+// ── WebGL Setup ──────────────────────────────────────────────
+const canvas = document.getElementById('bg');
+const gl = canvas.getContext('webgl', { alpha: false, antialias: false });
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── Shaders ──────────────────────────────────────────────────
+const vertSrc = `
+attribute vec2 a_position;
+void main() {
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+const fragSrc = `
+precision highp float;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform vec2 u_mouse;
+uniform vec3 u_crimson;
+uniform vec3 u_coral;
+uniform vec3 u_rose;
+uniform vec3 u_deep;
+uniform vec3 u_bg;
+
+//
+// Simplex 2D noise (Ashima Arts)
+//
+vec3 mod289(vec3 x) { return x - floor(x * (1.0/289.0)) * 289.0; }
+vec2 mod289(vec2 x) { return x - floor(x * (1.0/289.0)) * 289.0; }
+vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+
+float snoise(vec2 v) {
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                     -0.577350269189626, 0.024390243902439);
+  vec2 i  = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod289(i);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+  m = m*m; m = m*m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+  vec3 g;
+  g.x = a0.x * x0.x + h.x * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+// Sample the gradient — concentrated blob, starts from bottom
+vec3 sampleGradient(vec2 p, float t, vec2 mouse) {
+  float warp = snoise(p * 0.3 + t * 0.024 + vec2(50.0, 30.0));
+
+  // 2x speed on all time multipliers
+  float n1 = snoise(p * 0.5 + vec2(t * 0.06, t * 0.04) + mouse * 0.15) + warp * 0.2;
+  float n2 = snoise(p * 0.4 + vec2(-t * 0.05, t * 0.07) + mouse * 0.1 + vec2(5.0, 3.0)) + warp * 0.15;
+  float n3 = snoise(p * 0.6 + vec2(t * 0.036, -t * 0.056) - mouse * 0.12 + vec2(10.0, 7.0));
+
+  // Blob center — starts from bottom (-0.5 in st coords), rises up
+  float rise = min(t * 0.04, 1.0); // 0→1 over ~25 seconds
+  float baseY = mix(-0.7, 0.0, rise); // start below screen, settle toward center
+
+  vec2 blobCenter = vec2(
+    snoise(vec2(t * 0.04, 0.0) + mouse * 0.3) * (u_resolution.x / u_resolution.y) * 0.8,  // full width range
+    baseY + snoise(vec2(0.0, t * 0.05) + mouse * 0.2) * 0.35
+  );
+  float blobDist = length(p - blobCenter);
+  float blobMask = smoothstep(0.75, 0.08, blobDist);
+
+  // Build gradient
+  float m1 = smoothstep(-0.1, 0.5, n1) * blobMask;
+  float m2 = smoothstep(-0.05, 0.55, n2) * blobMask;
+  float m3 = smoothstep(0.0, 0.6, n3) * blobMask * 0.7;
+
+  vec3 g = u_bg;
+  g = mix(g, u_deep,    blobMask * 0.5);
+  g = mix(g, u_crimson, m1 * 0.8);
+  g = mix(g, u_rose,    m2 * 0.7);
+  g = mix(g, u_coral,   m3 * 0.5);
+
+  // Hotspot
+  float hotspot = smoothstep(0.35, 0.0, blobDist) * max(m1, m2);
+  g += hotspot * vec3(0.3, 0.08, 0.03);
+
+  return g;
+}
+
+// Film grain
+float grain(vec2 p, float t) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233)) + t) * 43758.5453) * 2.0 - 1.0;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution;
+  float aspect = u_resolution.x / u_resolution.y;
+  vec2 st = (uv - 0.5) * vec2(aspect, 1.0);
+
+  vec2 mouse = (u_mouse - 0.5) * vec2(aspect, 1.0);
+  float t = u_time;
+
+  // ═══════════════════════════════════════════════════════════
+  // 12 responsive vertical glass columns filling screen width
+  // ═══════════════════════════════════════════════════════════
+
+  float NUM_COLS = 12.0;
+  float COL_WIDTH = aspect / NUM_COLS; // screen width in st coords = aspect
+
+  // Map st.x from [-aspect/2 .. +aspect/2] to [0 .. aspect]
+  float colPos = st.x + aspect * 0.5;
+  float colIndex = floor(colPos / COL_WIDTH);
+
+  // Position within column (0 to 1)
+  float inCol = fract(colPos / COL_WIDTH);
+
+  // ── Edge distortion (glass bending at column seams) ──
+  float edgeDist = min(inCol, 1.0 - inCol); // 0 at edge, 0.5 at center
+  float edgeDistort = smoothstep(0.22, 0.0, edgeDist); // wider distortion zone
+
+  // Vertical smear at edges — bends gradient at column boundaries
+  float edgeNoise = snoise(vec2(colIndex * 17.3, st.y * 2.0 + t * 0.04));
+  float edgeNoise2 = snoise(vec2(colIndex * 31.7, st.y * 1.5 - t * 0.03 + 5.0));
+  vec2 edgeOffset = vec2(
+    edgeDistort * (edgeNoise2 * 0.12 + 0.06),  // stronger horizontal bend
+    edgeDistort * edgeNoise * 0.30              // 2x vertical smear
+  );
+
+  // ── Per-column refraction offset ──
+  float hash1 = fract(sin(colIndex * 127.1) * 43758.5453);
+  float hash2 = fract(sin(colIndex * 269.5 + 37.0) * 18643.2891);
+
+  vec2 refractOffset = vec2(
+    (hash1 - 0.5) * 0.4,
+    (hash2 - 0.5) * 0.3
+  );
+
+  vec2 samplePos = st + refractOffset + edgeOffset;
+  vec3 color = sampleGradient(samplePos, t, mouse);
+
+  // ═══════════════════════════════════════════════════════════
+  // Final touches
+  // ═══════════════════════════════════════════════════════════
+
+  // Mouse glow
+  float mouseDist = length(st - mouse * 0.3);
+  color += exp(-mouseDist * mouseDist * 3.0) * 0.05 * vec3(0.9, 0.2, 0.1);
+
+  // Vignette
+  float vig = 1.0 - smoothstep(0.15, 1.0, length(st * 0.85));
+  color *= 0.5 + 0.5 * vig;
+
+  // Film grain — stronger
+  float g = grain(gl_FragCoord.xy, t) * 0.08;
+  color += g;
+
+  // Gamma
+  color = pow(max(color, vec3(0.0)), vec3(0.94));
+
+  gl_FragColor = vec4(color, 1.0);
+}`;
+
+// ── Compile & Link ───────────────────────────────────────────
+function createShader(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+const vert = createShader(gl.VERTEX_SHADER, vertSrc);
+const frag = createShader(gl.FRAGMENT_SHADER, fragSrc);
+const program = gl.createProgram();
+gl.attachShader(program, vert);
+gl.attachShader(program, frag);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+// Full-screen quad
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(program, 'a_position');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+// Uniform locations
+const uRes = gl.getUniformLocation(program, 'u_resolution');
+const uTime = gl.getUniformLocation(program, 'u_time');
+const uMouse = gl.getUniformLocation(program, 'u_mouse');
+
+// Color uniforms
+const uCrimson = gl.getUniformLocation(program, 'u_crimson');
+const uCoral   = gl.getUniformLocation(program, 'u_coral');
+const uRose    = gl.getUniformLocation(program, 'u_rose');
+const uDeep    = gl.getUniformLocation(program, 'u_deep');
+const uBg      = gl.getUniformLocation(program, 'u_bg');
+
+function updateColorUniforms() {
+  gl.uniform3f(uCrimson, ...colors.crimson);
+  gl.uniform3f(uCoral,   ...colors.coral);
+  gl.uniform3f(uRose,    ...colors.rose);
+  gl.uniform3f(uDeep,    ...colors.deep);
+  gl.uniform3f(uBg,      ...colors.bg);
+}
+updateColorUniforms();
+
+// ── Mouse Tracking (with lerp smoothing) ─────────────────────
+let mouseX = 0.5, mouseY = 0.5;
+let targetX = 0.5, targetY = 0.5;
+
+document.addEventListener('mousemove', (e) => {
+  targetX = e.clientX / window.innerWidth;
+  targetY = 1.0 - e.clientY / window.innerHeight;
+});
+
+// ── Animation Loop ───────────────────────────────────────────
+const startTime = performance.now();
+
+function render() {
+  mouseX += (targetX - mouseX) * 0.03;
+  mouseY += (targetY - mouseY) * 0.03;
+
+  const t = (performance.now() - startTime) * 0.001;
+
+  gl.uniform2f(uRes, canvas.width, canvas.height);
+  gl.uniform1f(uTime, t);
+  gl.uniform2f(uMouse, mouseX, mouseY);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+
+render();
+</script>
+</body>
+</html>
