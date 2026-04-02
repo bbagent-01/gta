@@ -146,7 +146,7 @@
   <div class="section">
     <div class="section-label">Colors</div>
     <div class="section-body">
-      <div class="color-row"><label>Primary</label><input type="color" value="#EB1A1F" data-color="highlight"></div>
+      <div class="color-row"><label>Primary</label><input type="color" value="#ff4d00" data-color="highlight"></div>
       <div class="divider"></div>
       <div class="gen-row">
         <select id="harmonySelect">
@@ -162,10 +162,10 @@
         </select>
         <button onclick="generatePalette()">Generate</button>
       </div>
-      <div class="color-row"><label>Secondary</label><input type="color" value="#FA5230" data-color="accent"></div>
-      <div class="color-row"><label>Mid</label><input type="color" value="#CC1A40" data-color="mid"></div>
-      <div class="color-row"><label>Background 1</label><input type="color" value="#73080F" data-color="shadow"></div>
-      <div class="color-row"><label>Background 2</label><input type="color" value="#050304" data-color="bg"></div>
+      <div class="color-row"><label>Secondary</label><input type="color" value="#ff7b00" data-color="accent"></div>
+      <div class="color-row"><label>Mid</label><input type="color" value="#ffd500" data-color="mid"></div>
+      <div class="color-row"><label>Background 1</label><input type="color" value="#dbcb9f" data-color="shadow"></div>
+      <div class="color-row"><label>Background 2</label><input type="color" value="#ece6da" data-color="bg"></div>
     </div>
   </div>
 
@@ -176,12 +176,12 @@
       <div class="slider-row"><label>Speed</label><input type="range" min="0.1" max="3" step="0.05" value="1" data-param="speed"><span class="val">1.0</span></div>
       <div class="slider-row"><label>Columns</label><input type="range" min="2" max="24" step="1" value="12" data-param="columns"><span class="val">12</span></div>
       <div class="slider-row"><label>Grain Texture</label><input type="range" min="0" max="0.5" step="0.005" value="0.06" data-param="grainTexture"><span class="val">0.06</span></div>
-      <div class="slider-row"><label>Grain Flicker</label><input type="range" min="0" max="0.3" step="0.005" value="0.03" data-param="grainFlicker"><span class="val">0.03</span></div>
-      <div class="slider-row"><label>Edge Bend</label><input type="range" min="0" max="10" step="0.1" value="1" data-param="edgeBend"><span class="val">1.0</span></div>
-      <div class="slider-row"><label>Blob Size</label><input type="range" min="0.2" max="1.5" step="0.05" value="0.75" data-param="blobSize"><span class="val">0.75</span></div>
-      <div class="slider-row"><label>Refraction</label><input type="range" min="0" max="2" step="0.05" value="1" data-param="refraction"><span class="val">1.0</span></div>
+      <div class="slider-row"><label>Grain Flicker</label><input type="range" min="0" max="0.3" step="0.005" value="0.22" data-param="grainFlicker"><span class="val">0.22</span></div>
+      <div class="slider-row"><label>Edge Bend</label><input type="range" min="0" max="10" step="0.1" value="1.4" data-param="edgeBend"><span class="val">1.4</span></div>
+      <div class="slider-row"><label>Blob Size</label><input type="range" min="0.2" max="1.5" step="0.05" value="1" data-param="blobSize"><span class="val">1.0</span></div>
+      <div class="slider-row"><label>Refraction</label><input type="range" min="0" max="2" step="0.05" value="0.4" data-param="refraction"><span class="val">0.40</span></div>
       <div class="slider-row"><label>Vignette</label><input type="range" min="0" max="1" step="0.05" value="0.5" data-param="vignette"><span class="val">0.50</span></div>
-      <div class="slider-row"><label>Mouse Attract</label><input type="range" min="0" max="1" step="0.05" value="0.3" data-param="mouseAttract"><span class="val">0.30</span></div>
+      <div class="slider-row"><label>Mouse Attract</label><input type="range" min="0" max="1" step="0.05" value="0.75" data-param="mouseAttract"><span class="val">0.75</span></div>
       <div class="slider-row"><label>Blob Count</label><input type="range" min="1" max="5" step="1" value="2" data-param="blobCount"><span class="val">2</span></div>
     </div>
   </div>
@@ -202,28 +202,28 @@
 <script>
 // ── State ────────────────────────────────────────────────────
 const colors = {
-  highlight: [0.92, 0.10, 0.12],
-  accent:    [0.98, 0.32, 0.18],
-  mid:       [0.80, 0.10, 0.25],
-  shadow:    [0.45, 0.03, 0.06],
-  bg:        [0.02, 0.015, 0.018],
+  highlight: [1.0, 0.30, 0.0],
+  accent:    [1.0, 0.48, 0.0],
+  mid:       [1.0, 0.84, 0.0],
+  shadow:    [0.86, 0.80, 0.62],
+  bg:        [0.93, 0.90, 0.85],
 };
 
 const params = {
   speed: 1.0,
   columns: 12.0,
   grainTexture: 0.06,
-  grainFlicker: 0.03,
-  edgeBend: 1.0,
-  blobSize: 0.75,
-  refraction: 1.0,
+  grainFlicker: 0.22,
+  edgeBend: 1.4,
+  blobSize: 1.0,
+  refraction: 0.4,
   vignette: 0.5,
-  mouseAttract: 0.3,
+  mouseAttract: 0.75,
   blobCount: 2.0,
 };
 
 const defaultColors = {
-  highlight: '#EB1A1F', accent: '#FA5230', mid: '#CC1A40', shadow: '#73080F', bg: '#050304' // Primary, Secondary, Mid, BG1, BG2
+  highlight: '#ff4d00', accent: '#ff7b00', mid: '#ffd500', shadow: '#dbcb9f', bg: '#ece6da'
 };
 const defaultParams = { ...params };
 
